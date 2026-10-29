@@ -26,6 +26,7 @@ func _ready() -> void:
 	_add_torches()
 	_add_pickups()
 	_add_enemies()
+	_add_extras()
 	var hud := preload("res://scenes/ui/HUD.tscn").instantiate()
 	add_child(hud)
 	GameState.set_objective("Find a way out of the mine")
@@ -64,6 +65,7 @@ func _add_torches() -> void:
 		light.omni_range = 9.0
 		light.shadow_enabled = true
 		light.position = Vector3(r.cx * CELL, 3.0, r.cz * CELL)
+		light.add_to_group("torch_lights")
 		add_child(light)
 		var flame := MeshInstance3D.new()
 		var sm := SphereMesh.new()
@@ -77,3 +79,21 @@ func _add_torches() -> void:
 		flame.material_override = mat
 		flame.position = light.position
 		add_child(flame)
+
+
+func _add_extras() -> void:
+	# exit gate to Zone 2
+	var exit := preload("res://scenes/world/ExitTrigger.tscn").instantiate()
+	exit.position = Vector3(2 * CELL, 1.5, 16 * CELL)
+	add_child(exit)
+	# scripted scares
+	var ev1 := preload("res://scenes/world/ScriptedEvent.tscn").instantiate()
+	ev1.event_type = "flicker"
+	ev1.position = Vector3(8 * CELL, 1.0, 4 * CELL)
+	add_child(ev1)
+	var ev2 := preload("res://scenes/world/ScriptedEvent.tscn").instantiate()
+	ev2.event_type = "roar"
+	ev2.speaker = ""
+	ev2.line_text = "Something enormous is moving in the dark. Three corridors over. Getting closer."
+	ev2.position = Vector3(14 * CELL, 1.0, 12 * CELL)
+	add_child(ev2)
