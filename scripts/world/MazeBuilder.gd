@@ -26,8 +26,30 @@ func build() -> void:
 		_route(e[0], e[1])
 	_place_rooms()
 	_place_corridors()
+	_build_grid_collision()
 	_place_walls()
 	_seal_bounds()
+
+func _build_grid_collision() -> void:
+	var cells := walkable_cells()
+	var body := StaticBody3D.new()
+	body.collision_layer = 1
+	body.collision_mask = 0
+	add_child(body)
+	for c in cells.keys():
+		var cx: float = c.x * CELL
+		var cz: float = c.y * CELL
+		for d in [Vector2i(1, 0), Vector2i(-1, 0), Vector2i(0, 1), Vector2i(0, -1)]:
+			if not cells.has(c + d):
+				var cs := CollisionShape3D.new()
+				var sh := BoxShape3D.new()
+				if d.x != 0:
+					sh.size = Vector3(0.5, 5, CELL)
+				else:
+					sh.size = Vector3(CELL, 5, 0.5)
+				cs.shape = sh
+				cs.position = Vector3(cx + d.x * CELL * 0.5, 2.5, cz + d.y * CELL * 0.5)
+				body.add_child(cs)
 
 func walkable_cells() -> Dictionary:
 	var w := {}

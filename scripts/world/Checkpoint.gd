@@ -24,14 +24,14 @@ func _ready() -> void:
 	add_child(crate)
 	var fire := OmniLight3D.new()
 	fire.light_color = Color(1.0, 0.55, 0.2)
-	fire.light_energy = 0.9
-	fire.omni_range = 4.0
+	fire.light_energy = 0.6
+	fire.omni_range = 3.0
 	fire.position = Vector3(0, 0.8, 0)
 	add_child(fire)
 	var t := create_tween()
 	t.set_loops()
-	t.tween_property(fire, "light_energy", 1.2, 0.35)
-	t.tween_property(fire, "light_energy", 0.7, 0.3)
+	t.tween_property(fire, "light_energy", 0.85, 0.35)
+	t.tween_property(fire, "light_energy", 0.5, 0.3)
 
 func _on_body(body: Node3D) -> void:
 	if GameState.mode != GameState.Mode.PLAY:

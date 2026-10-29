@@ -97,7 +97,13 @@ func _physics_process(delta: float) -> void:
 	crouch_amount = move_toward(crouch_amount, 1.0 if crouching else 0.0, delta * 8.0)
 
 	var input_dir := Input.get_vector("move_left", "move_right", "move_back", "move_forward")
-	var local_move := (Vector3(input_dir.x, 0, input_dir.y) * global_transform.basis.orthonormalized())
+	var cam_f := -camera.global_transform.basis.z
+	cam_f.y = 0.0
+	cam_f = cam_f.normalized()
+	var cam_r := camera.global_transform.basis.x
+	cam_r.y = 0.0
+	cam_r = cam_r.normalized()
+	var local_move := cam_r * input_dir.x - cam_f * input_dir.y
 	var target_speed := Balance.WALK_SPEED
 	if crouching:
 		target_speed = Balance.CROUCH_SPEED

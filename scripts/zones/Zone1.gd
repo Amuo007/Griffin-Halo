@@ -28,7 +28,7 @@ func _ready() -> void:
 	_add_enemies()
 	_add_extras()
 	var cp := preload("res://scenes/world/Checkpoint.tscn").instantiate()
-	cp.position = Vector3(0 * 4.0, 0.0, 1 * 4.0)
+	cp.position = Vector3(-3.0, 0.0, 3.0)
 	add_child(cp)
 	apply_checkpoint(1)
 	var hud := preload("res://scenes/ui/HUD.tscn").instantiate()

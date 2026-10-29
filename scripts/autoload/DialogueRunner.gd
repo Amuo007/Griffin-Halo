@@ -43,11 +43,12 @@ func play_cutscene(id: String) -> void:
 	GameState.mode = GameState.Mode.CUTSCENE
 	cutscene_started.emit(id)
 	var cs := StoryData.get_cutscene(id)
-	await _fade_to(1.0, 0.8)
+	await _fade_to(1.0, 0.6)
 	if cs.get("scene", "") != "":
 		get_tree().change_scene_to_file(cs["scene"])
 		await get_tree().process_frame
-		await get_tree().create_timer(0.5).timeout
+		await get_tree().create_timer(0.3).timeout
+	await _fade_to(0.0, 0.6)
 	for i in cs.get("lines", []).size():
 		if _skip_requested:
 			break
@@ -64,7 +65,7 @@ func play_cutscene(id: String) -> void:
 			await get_tree().create_timer(0.1).timeout
 			waited += 0.1
 	_voice_player.stop()
-	await _fade_to(0.0, 0.8)
+	await _fade_to(1.0, 0.6)
 	_finish()
 
 func skip() -> void:
@@ -73,6 +74,11 @@ func skip() -> void:
 
 func _finish() -> void:
 	playing = false
+	_fade_out_to_clear()
+
+func _fade_out_to_clear() -> void:
+	await get_tree().create_timer(0.4).timeout
+	await _fade_to(0.0, 0.7)
 	GameState.mode = GameState.previous_mode
 	cutscene_finished.emit(_current)
 	if not _queue.is_empty():
