@@ -1,0 +1,7 @@
+.godot/
+exports/
+assets/raw/
+.tools-venv/
+.DS_Store
+*.log
+tests/results/
