@@ -4,9 +4,13 @@ extends Node
 signal cutscene_started(id)
 signal cutscene_finished(id)
 signal line_started(speaker, text)
+signal lore_opened(lore_id)
 
 var playing: bool = false
 var _current: String = ""
+
+func show_lore(lore_id: String) -> void:
+	lore_opened.emit(lore_id)
 
 func play_cutscene(id: String) -> void:
 	if playing:

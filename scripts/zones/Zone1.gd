@@ -24,7 +24,25 @@ func _ready() -> void:
 		add_edge(e[0], e[1])
 	build()
 	_add_torches()
+	_add_pickups()
+	var hud := preload("res://scenes/ui/HUD.tscn").instantiate()
+	add_child(hud)
 	GameState.set_objective("Find a way out of the mine")
+
+func _add_pickups() -> void:
+	_spawn_pickup("gun", 2, 8, {"gun_id": "pistol", "model_path": "res://assets/game/blasters/blaster-a.glb"})
+	_spawn_pickup("ammo", 14, 8, {"model_path": "res://assets/game/blasters/clip-small.glb"})
+	_spawn_pickup("food", 8, 0, {"model_path": "res://assets/game/food/can-open.glb"})
+	_spawn_pickup("battery", 8, 8, {"model_path": "res://assets/game/blasters/bullet-foam.glb"})
+	_spawn_pickup("ammo", 14, 16, {"model_path": "res://assets/game/blasters/clip-large.glb"})
+
+func _spawn_pickup(type: String, cx: int, cz: int, props: Dictionary) -> void:
+	var p = preload("res://scenes/pickups/Pickup.tscn").instantiate()
+	p.pickup_type = type
+	p.model_path = props.get("model_path", "")
+	p.gun_id = props.get("gun_id", "")
+	p.position = Vector3(cx * CELL + 1.5, 1.0, cz * CELL + 1.5)
+	add_child(p)
 
 func _add_torches() -> void:
 	for r in ROOMS:

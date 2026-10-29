@@ -1,10 +1,13 @@
 extends CharacterBody3D
-## Third-person player: movement, camera, crouch, sprint, dodge, torch.
+## Third-person player: movement, camera, crouch, sprint, dodge, torch, combat.
 
 signal noise_emitted(pos, radius)
 signal hp_changed(hp)
 signal stamina_changed(pct)
 signal torch_changed(on, battery_pct)
+signal ammo_changed(gun_id, rounds)
+signal aim_changed(aiming)
+signal weapon_changed(gun_id)
 
 @onready var character: Node3D = $Character
 @onready var anim_tree: AnimationTree = $Character/AnimationTree
@@ -13,6 +16,7 @@ signal torch_changed(on, battery_pct)
 @onready var camera: Camera3D = $SpringArm/Camera3D
 @onready var flashlight: SpotLight3D = $SpringArm/Camera3D/Flashlight
 @onready var collision: CollisionShape3D = $Collision
+@onready var gun_point: Node3D = $Character/Root/Skeleton3D/GunPoint
 
 var yaw: float = 0.0
 var pitch: float = 0.0
@@ -26,21 +30,33 @@ var iframes: float = 0.0
 var move_speed: float = 0.0
 var noise_timer: float = 0.0
 var _bob_time: float = 0.0
-var _aim_amount: float = 0.0          # Phase 4: ADS blend
+var _aim_amount: float = 0.0
+var aiming: bool = false
 var _recoil_kick: float = 0.0
 var _shake: float = 0.0
+var _fire_cooldown: float = 0.0
+var _gun_instance: Node3D = null
+var _muzzle: OmniLight3D = null
+var _empty_click_time: float = 0.0
 
 func _ready() -> void:
+	add_to_group("player")
 	Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
 	anim_tree.active = true
 	var playback = anim_tree.get("parameters/playback")
 	if playback:
 		playback.travel("Locomotion")
 	_update_flashlight()
+	_muzzle = OmniLight3D.new()
+	_muzzle.light_color = Color(1.0, 0.75, 0.4)
+	_muzzle.light_energy = 0.0
+	_muzzle.omni_range = 6.0
+	gun_point.add_child(_muzzle)
+	_refresh_gun()
 
 func _unhandled_input(event: InputEvent) -> void:
 	if event is InputEventMouseMotion and Input.mouse_mode == Input.MOUSE_MODE_CAPTURED:
-		var sens: float = Balance.MOUSE_SENS_BASE
+		var sens: float = Balance.MOUSE_SENS_BASE * (1.0 if not aiming else 0.55)
 		yaw -= event.relative.x * sens
 		pitch = clampf(pitch - event.relative.y * sens, -1.2, 0.9)
 	if event.is_action_pressed("flashlight"):
@@ -48,6 +64,16 @@ func _unhandled_input(event: InputEvent) -> void:
 		_update_flashlight()
 	if event.is_action_pressed("dodge"):
 		_try_dodge()
+	if event.is_action_pressed("aim"):
+		aiming = true
+		aim_changed.emit(true)
+	if event.is_action_released("aim"):
+		aiming = false
+		aim_changed.emit(false)
+	if event.is_action_pressed("fire"):
+		_try_fire()
+	if event.is_action_pressed("interact"):
+		_try_interact()
 	if event.is_action_pressed("pause"):
 		get_tree().paused = not get_tree().paused
 		Input.mouse_mode = Input.MOUSE_MODE_VISIBLE if get_tree().paused else Input.MOUSE_MODE_CAPTURED
@@ -125,11 +151,143 @@ func _physics_process(delta: float) -> void:
 
 	_update_camera(delta)
 	_update_animation(delta)
+	_update_combat(delta)
+
+func _update_combat(delta: float) -> void:
+	_fire_cooldown = maxf(0.0, _fire_cooldown - delta)
+	_aim_amount = move_toward(_aim_amount, 1.0 if aiming else 0.0, delta * 7.0)
+	var gun_id: String = GameState.current_gun_id()
+	if gun_id != "":
+		var gun: Dictionary = Balance.GUNS[gun_id]
+		if gun.get("auto", false) and Input.is_action_pressed("fire"):
+			_try_fire()
+	_refresh_gun()
+
+func _try_fire() -> void:
+	var gun_id: String = GameState.current_gun_id()
+	if gun_id == "" or _fire_cooldown > 0.0:
+		return
+	var rounds: int = GameState.ammo.get(gun_id, 0)
+	if rounds <= 0:
+		if _empty_click_time <= 0.0:
+			_empty_click_time = 0.5
+			ammo_changed.emit(gun_id, 0)
+		return
+	_empty_click_time = 0.0
+	var gun: Dictionary = Balance.GUNS[gun_id]
+	GameState.ammo[gun_id] = rounds - 1
+	_fire_cooldown = gun.fire_rate
+	ammo_changed.emit(gun_id, rounds - 1)
+	_fire_once(gun)
+
+func _fire_once(gun: Dictionary) -> void:
+	var spread: float = gun.spread if not aiming else gun.aim_spread
+	var pellets: int = gun.get("pellets", 1)
+	var base_dir := -camera.global_transform.basis.z.normalized()
+	for i in pellets:
+		var dir := base_dir
+		if spread > 0.0:
+			dir = base_dir.rotated(Vector3.RIGHT, randf_range(-spread, spread)).rotated(Vector3.UP, randf_range(-spread, spread))
+		var query := PhysicsRayQueryParameters3D.create(
+			camera.global_position, camera.global_position + dir * 120.0,
+			0xFFFFFFFF & ~0b100)  # all except player layer
+		var hit := get_world_3d().direct_space_state.intersect_ray(query)
+		var end := camera.global_position + dir * 60.0
+		if hit:
+			end = hit.position
+			var collider: Node = hit.collider
+			var enemy := _find_ancestor_with(collider, "take_damage")
+			if enemy:
+				enemy.take_damage(gun.damage, dir)
+			_spawn_impact(end, hit.normal if hit.has("normal") else -dir)
+		_spawn_tracer(_muzzle.global_position, end)
+	_muzzle.light_energy = 5.0
+	add_recoil(gun.recoil)
+	add_shake(gun.shake)
+	emit_noise(Balance.NOISE_GUNSHOT)
+	# muzzle flash decay handled in _process via timer
+	get_tree().create_timer(0.06).timeout.connect(func(): if _muzzle: _muzzle.light_energy = 0.0)
+
+func _spawn_tracer(from: Vector3, to: Vector3) -> void:
+	var mesh := MeshInstance3D.new()
+	var cyl := CylinderMesh.new()
+	var length := from.distance_to(to)
+	cyl.top_radius = 0.012
+	cyl.bottom_radius = 0.012
+	cyl.height = length
+	var mat := StandardMaterial3D.new()
+	mat.emission_enabled = true
+	mat.emission = Color(1.0, 0.85, 0.5)
+	mat.emission_energy_multiplier = 3.0
+	mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	mesh.mesh = cyl
+	mesh.material_override = mat
+	get_tree().root.add_child(mesh)
+	mesh.global_transform = Transform3D(Basis(), from.lerp(to, 0.5))
+	mesh.global_basis = Basis(Vector3.UP, 0).looking_at((to - from).normalized(), Vector3.UP) * Basis(Vector3.RIGHT, PI / 2.0)
+	var t := get_tree().create_tween()
+	t.tween_property(mesh, "transparency", 1.0, 0.12)
+	t.tween_callback(mesh.queue_free)
+
+func _spawn_impact(pos: Vector3, normal: Vector3) -> void:
+	var mesh := MeshInstance3D.new()
+	var sm := SphereMesh.new()
+	sm.radius = 0.05
+	sm.height = 0.1
+	mesh.mesh = sm
+	var mat := StandardMaterial3D.new()
+	mat.emission_enabled = true
+	mat.emission = Color(1.0, 0.6, 0.2)
+	mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	mesh.material_override = mat
+	mesh.position = pos + normal * 0.03
+	add_child(mesh)
+	var t := get_tree().create_tween()
+	t.tween_property(mesh, "scale", Vector3(2.2, 2.2, 2.2), 0.1)
+	t.tween_callback(mesh.queue_free)
+
+func _find_ancestor_with(node: Node, method: String) -> Node:
+	var n: Node = node
+	while n != null:
+		if n.has_method(method):
+			return n
+		n = n.get_parent()
+	return null
+
+func _try_interact() -> void:
+	var query := PhysicsRayQueryParameters3D.create(
+		camera.global_position, camera.global_position + (-camera.global_transform.basis.z) * 2.6, 0xFFFFFFFF & ~0b100)
+	var hit := get_world_3d().direct_space_state.intersect_ray(query)
+	if hit:
+		var target := _find_ancestor_with(hit.collider, "interact")
+		if target:
+			target.interact(self)
+
+func _refresh_gun() -> void:
+	var gun_id: String = GameState.current_gun_id()
+	var current_name: String = _gun_instance.name if _gun_instance else ""
+	if current_name == gun_id:
+		return
+	if _gun_instance:
+		_gun_instance.queue_free()
+		_gun_instance = null
+	if gun_id == "":
+		return
+	var scene: PackedScene = load("res://assets/game/blasters/%s.glb" % Balance.GUNS[gun_id].model)
+	_gun_instance = scene.instantiate()
+	_gun_instance.name = gun_id
+	_gun_instance.scale = Vector3(0.55, 0.55, 0.55)
+	_gun_instance.rotation = Vector3(PI / 2.0, 0, PI)
+	gun_point.add_child(_gun_instance)
+	weapon_changed.emit(gun_id)
 
 func _update_camera(delta: float) -> void:
 	var shoulder_y: float = lerp(Balance.CAM_SHOULDER.y, Balance.CAM_SHOULDER.y - 0.55, crouch_amount)
-	spring.global_position = global_position + Basis(Vector3.UP, yaw) * Vector3(Balance.CAM_SHOULDER.x, shoulder_y, 0)
+	var shoulder_x: float = lerp(Balance.CAM_SHOULDER.x, Balance.CAM_SHOULDER_AIM.x, _aim_amount)
+	spring.global_position = global_position + Basis(Vector3.UP, yaw) * Vector3(shoulder_x, shoulder_y, 0)
 	spring.global_transform.basis = Basis.from_euler(Vector3(pitch + _recoil_kick, yaw, 0))
+	spring.spring_length = lerp(Balance.CAM_DISTANCE, Balance.CAM_DISTANCE_AIM, _aim_amount)
+	camera.fov = lerp(Balance.CAM_FOV, Balance.CAM_FOV_AIM, _aim_amount)
 	_recoil_kick = move_toward(_recoil_kick, 0.0, delta * 6.0)
 	_shake = move_toward(_shake, 0.0, delta * 2.0)
 	if _shake > 0.0:
@@ -153,6 +311,17 @@ func _update_animation(delta: float) -> void:
 			skeleton.set_bone_pose_rotation(spine, skeleton.get_bone_rest(spine).basis.get_rotation_quaternion() * Quaternion(Vector3(1, 0, 0), 0.5 * crouch_amount))
 		if chest >= 0:
 			skeleton.set_bone_pose_rotation(chest, skeleton.get_bone_rest(chest).basis.get_rotation_quaternion() * Quaternion(Vector3(1, 0, 0), 0.25 * crouch_amount))
+		# gun-hold / aim arm pose
+		if GameState.current_gun_id() != "":
+			var w := 0.5 + 0.5 * _aim_amount
+			var rarm := skeleton.find_bone("RightArm")
+			var larm := skeleton.find_bone("LeftArm")
+			if rarm >= 0:
+				var rest := skeleton.get_bone_rest(rarm).basis.get_rotation_quaternion()
+				skeleton.set_bone_pose_rotation(rarm, rest * Quaternion(Vector3(1, 0, 0), -1.15 * w))
+			if larm >= 0:
+				var rest2 := skeleton.get_bone_rest(larm).basis.get_rotation_quaternion()
+				skeleton.set_bone_pose_rotation(larm, rest2 * Quaternion(Vector3(1, 0, 0), -1.05 * w))
 
 func _try_dodge() -> void:
 	if dodge_cooldown > 0.0 or GameState.stamina < Balance.DODGE_STAMINA_COST:
