@@ -25,9 +25,21 @@ func _ready() -> void:
 	build()
 	_add_torches()
 	_add_pickups()
+	_add_enemies()
 	var hud := preload("res://scenes/ui/HUD.tscn").instantiate()
 	add_child(hud)
 	GameState.set_objective("Find a way out of the mine")
+
+func _add_enemies() -> void:
+	_spawn_enemy("fox", 14, 9)
+	_spawn_enemy("hog", 8, 16)
+	_spawn_enemy("cat", 14, 12)
+
+func _spawn_enemy(species: String, cx: int, cz: int) -> void:
+	var e = preload("res://scenes/enemies/Enemy.tscn").instantiate()
+	e.species_id = species
+	e.position = Vector3(cx * CELL, 0.1, cz * CELL)
+	add_child(e)
 
 func _add_pickups() -> void:
 	_spawn_pickup("gun", 2, 8, {"gun_id": "pistol", "model_path": "res://assets/game/blasters/blaster-a.glb"})

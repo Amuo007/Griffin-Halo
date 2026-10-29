@@ -20,6 +20,7 @@ func add_edge(a: String, b: String) -> void:
 	edges.append([a, b])
 
 func build() -> void:
+	add_to_group("maze")
 	_mark_rooms()
 	for e in edges:
 		_route(e[0], e[1])
@@ -27,6 +28,17 @@ func build() -> void:
 	_place_corridors()
 	_place_walls()
 	_seal_bounds()
+
+func walkable_cells() -> Dictionary:
+	var w := {}
+	for c in _room_cells.keys():
+		w[c] = true
+	for c in _corridor_cells.keys():
+		w[c] = true
+	return w
+
+func find_path(from_world: Vector3, to_world: Vector3) -> PackedVector3Array:
+	return MazeNavigator.find_path(walkable_cells(), from_world, to_world, CELL)
 
 func _seal_bounds() -> void:
 	var min_x := 100000
