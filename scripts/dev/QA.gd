@@ -14,6 +14,30 @@ func _ready() -> void:
 func _t(sec: float) -> void:
 	await _tree.create_timer(sec).timeout
 
+func _settle(scene_name: String) -> void:
+	for i in 120:
+		await _t(0.25)
+		if _scene_name() == scene_name:
+			break
+	var seen := false
+	var elapsed := 0.0
+	var stable := 0.0
+	for i in 240:
+		await _t(0.25)
+		elapsed += 0.25
+		if DialogueRunner.playing:
+			seen = true
+			stable = 0.0
+			DialogueRunner.skip()
+		elif GameState.mode == GameState.Mode.PLAY and DialogueRunner._queue.is_empty():
+			stable += 0.25
+			if seen and stable >= 2.5:
+				return
+			if not seen and elapsed > 2.5:
+				return
+		else:
+			stable = 0.0
+
 func check(name: String, cond: bool) -> void:
 	print(("PASS " if cond else "FAIL ") + name)
 	if not cond:
@@ -27,11 +51,7 @@ func _player() -> Node:
 
 func _t_new_game() -> void:
 	GameFlow.start_game()
-	await _t(1.0)
-	DialogueRunner.skip()
-	await _t(1.5)
-	DialogueRunner.skip()
-	await _t(2.0)
+	await _settle("Zone1")
 	check("new-game reaches Zone1", _scene_name() == "Zone1")
 	check("mode is PLAY", GameState.mode == GameState.Mode.PLAY)
 	check("player exists", _player() != null)
@@ -43,20 +63,22 @@ func _t_zone_flow() -> void:
 	p.global_position = Vector3(2 * 4.0, 1.0, 16 * 4.0)
 	await _t(1.5)
 	check("Zone1 exit -> Zone2", _scene_name() == "Zone2")
-	DialogueRunner.skip()  # journal
-	await _t(1.0)
+	await _settle("Zone2")
 	var p2 := _player()
 	p2.global_position = Vector3(12 * 4.0, 1.0, 14 * 4.0)
 	await _t(1.5)
 	check("Zone2 exit -> Zone3", _scene_name() == "Zone3")
-	DialogueRunner.skip()  # alpha
-	await _t(1.0)
+	await _settle("Zone3")
 	var p3 := _player()
 	p3.global_position = Vector3(0 * 4.0, 1.0, 12 * 4.0)
 	await _t(1.5)
 	check("Zone3 exit -> Victory", _scene_name() == "Victory")
-	DialogueRunner.skip()  # dawn
-	await _t(2.0)
+	for i in 60:
+		await _t(0.25)
+		if DialogueRunner.playing:
+			DialogueRunner.skip()
+		elif _tree.current_scene.get_children().any(func(c): return c.name == "VictoryPanel"):
+			break
 	check("victory panel added", _tree.current_scene.get_children().any(func(c): return c.name == "VictoryPanel"))
 	GameFlow.go_menu()
 	await _t(1.0)
@@ -65,16 +87,13 @@ func _t_zone_flow() -> void:
 
 func _t_death_respawn() -> void:
 	GameFlow.start_game()
-	await _t(1.0)
-	DialogueRunner.skip()
-	await _t(1.5)
-	DialogueRunner.skip()
-	await _t(1.5)
+	await _settle("Zone1")
 	# checkpoint: walk onto campfire
 	var p := _player()
 	p.global_position = Vector3(0, 1.0, 4)
 	await _t(0.8)
 	check("checkpoint saved", SaveManager.has_save() and int(GameState.checkpoint.get("zone", 0)) == 1)
+	print("DBGdeath mode=", GameState.mode, " hp=", GameState.hp)
 	# take damage -> dead
 	GameState.damage_player(999.0)
 	await _t(0.5)

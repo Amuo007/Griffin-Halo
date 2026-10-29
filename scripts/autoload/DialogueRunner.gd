@@ -7,6 +7,7 @@ signal line_started(speaker, text)
 signal lore_opened(lore_id)
 
 var playing: bool = false
+var _queue: Array = []
 var _current: String = ""
 var _skip_requested: bool = false
 var _fade: CanvasLayer = null
@@ -32,6 +33,8 @@ func _unhandled_input(event: InputEvent) -> void:
 
 func play_cutscene(id: String) -> void:
 	if playing:
+		if not _queue.has(id):
+			_queue.append(id)
 		return
 	playing = true
 	_skip_requested = false
@@ -65,13 +68,16 @@ func play_cutscene(id: String) -> void:
 	_finish()
 
 func skip() -> void:
-		if playing:
+	if playing:
 		_skip_requested = true
 
 func _finish() -> void:
-		playing = false
+	playing = false
 	GameState.mode = GameState.previous_mode
 	cutscene_finished.emit(_current)
+	if not _queue.is_empty():
+		var nxt: String = _queue.pop_front()
+		play_cutscene.call_deferred(nxt)
 
 func show_lore(lore_id: String) -> void:
 	lore_opened.emit(lore_id)
