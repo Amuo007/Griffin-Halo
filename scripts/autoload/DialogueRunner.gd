@@ -65,11 +65,11 @@ func play_cutscene(id: String) -> void:
 	_finish()
 
 func skip() -> void:
-	if playing:
+		if playing:
 		_skip_requested = true
 
 func _finish() -> void:
-	playing = false
+		playing = false
 	GameState.mode = GameState.previous_mode
 	cutscene_finished.emit(_current)
 
@@ -77,6 +77,10 @@ func show_lore(lore_id: String) -> void:
 	lore_opened.emit(lore_id)
 
 func _fade_to(alpha: float, time: float) -> void:
-	var t := create_tween()
-	t.tween_property(_fade_rect, "color:a", alpha, time)
-	await t.finished
+	var start_a := _fade_rect.color.a
+	var steps := int(time / 0.05) + 1
+	for i in steps:
+		await get_tree().create_timer(0.05).timeout
+		var f := float(i + 1) / float(steps)
+		_fade_rect.color.a = lerpf(start_a, alpha, f)
+	_fade_rect.color.a = alpha

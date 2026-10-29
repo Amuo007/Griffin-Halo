@@ -30,6 +30,8 @@ func _ready() -> void:
 	var cp := preload("res://scenes/world/Checkpoint.tscn").instantiate()
 	cp.position = Vector3(0 * 4.0, 0.0, 1 * 4.0)
 	add_child(cp)
+	var hud := preload("res://scenes/ui/HUD.tscn").instantiate()
+	add_child(hud)
 	apply_checkpoint(2)
 	GameState.set_objective("Reach the pump house and find the way up")
 	DialogueRunner.play_cutscene("journal")

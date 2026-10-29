@@ -21,8 +21,18 @@ func _initialize() -> void:
 
 func _process(_delta: float) -> bool:
 	frames += 1
+	var dr := root.get_node_or_null("DialogueRunner")
+	if frames == 30 and dr and dr.playing:
+		dr.skip()
+	var gs := root.get_node_or_null("GameState")
+	if gs and dr and not dr.playing:
+		gs.mode = 3
 	if frames == target_frames:
 		await process_frame
+		var gs2 := root.get_node_or_null("GameState")
+		var dr2 := root.get_node_or_null("DialogueRunner")
+		var cam2 := root.get_viewport().get_camera_3d()
+		print("DBG mode=", gs2.mode if gs2 else "no-gs", " playing=", dr2.playing if dr2 else "no-dr", " cam=", cam2.global_position if cam2 else "no-cam")
 		var img := root.get_texture().get_image()
 		img.save_png(out_path)
 		print("saved ", out_path)

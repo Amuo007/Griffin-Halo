@@ -1,10 +1,17 @@
 extends SceneTree
 func _initialize() -> void:
-	change_scene_to_file("res://scenes/zones/Zone1.tscn")
-	for i in 30:
+	change_scene_to_file("res://scenes/zones/Zone2.tscn")
+	var gs := root.get_node_or_null("GameState")
+	var dr := root.get_node_or_null("DialogueRunner")
+	for i in 60:
 		await process_frame
+		if i == 30 and dr and dr.playing: dr.skip()
+		if gs and dr and not dr.playing: gs.mode = 3
 	var cam := root.get_viewport().get_camera_3d()
+	print("MODE ", gs.mode, " playing ", dr.playing)
 	print("CAM ", cam.global_position)
+	var pl: Node = root.current_scene.get_node_or_null("Player")
+	if pl: print("PLAYER ", pl.global_position)
 	_walk(root, cam)
 	quit()
 
