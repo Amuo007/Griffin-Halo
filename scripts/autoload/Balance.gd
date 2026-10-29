@@ -38,7 +38,7 @@ const CAM_SHOULDER_AIM_L := Vector3(-0.38, 1.5, 0)
 const CAM_DISTANCE := 4.2
 const CAM_DISTANCE_AIM := 2.6
 const CAM_SPRING_STIFFNESS := 90.0
-const MOUSE_SENS_BASE := 0.0026
+var mouse_sens: float = 0.0026
 
 # --- Combat ---
 const GUNS := {

@@ -264,3 +264,11 @@ func debug_dump() -> void:
 			elif _corridor_cells.has(c): line += "#"
 			else: line += "."
 		print(line)
+
+func apply_checkpoint(zone_id: int) -> void:
+	if int(GameState.checkpoint.get("zone", 0)) != zone_id:
+		return
+	var pos_arr = GameState.checkpoint.get("pos", [])
+	var p := get_node_or_null("Player")
+	if p and pos_arr.size() == 3:
+		p.global_position = Vector3(pos_arr[0], pos_arr[1], pos_arr[2])

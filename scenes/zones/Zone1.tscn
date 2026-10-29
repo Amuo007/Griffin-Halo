@@ -11,6 +11,7 @@ sky_horizon_color = Color(0.01, 0.01, 0.015, 1)
 sky_material = SubResource("sky_mat")
 
 [sub_resource type="Environment" id="env"]
+tonemap_mode = 2
 background_mode = 2
 sky = SubResource("sky")
 ambient_light_source = 3

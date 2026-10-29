@@ -56,7 +56,7 @@ func _ready() -> void:
 
 func _unhandled_input(event: InputEvent) -> void:
 	if event is InputEventMouseMotion and Input.mouse_mode == Input.MOUSE_MODE_CAPTURED:
-		var sens: float = Balance.MOUSE_SENS_BASE * (1.0 if not aiming else 0.55)
+		var sens: float = Balance.mouse_sens * (1.0 if not aiming else 0.55)
 		yaw -= event.relative.x * sens
 		pitch = clampf(pitch - event.relative.y * sens, -1.2, 0.9)
 	if event.is_action_pressed("flashlight"):
@@ -74,11 +74,18 @@ func _unhandled_input(event: InputEvent) -> void:
 		_try_fire()
 	if event.is_action_pressed("interact"):
 		_try_interact()
-	if event.is_action_pressed("pause"):
+	if event.is_action_pressed("pause") and GameState.mode == GameState.Mode.PLAY:
 		get_tree().paused = not get_tree().paused
+		if get_tree().paused:
+			GameState.previous_mode = GameState.Mode.PLAY
+			GameState.mode = GameState.Mode.PAUSED
+		else:
+			GameState.mode = GameState.Mode.PLAY
 		Input.mouse_mode = Input.MOUSE_MODE_VISIBLE if get_tree().paused else Input.MOUSE_MODE_CAPTURED
 
 func _physics_process(delta: float) -> void:
+	if GameState.mode != GameState.Mode.PLAY:
+		return
 	grounded = is_on_floor()
 	if not grounded:
 		velocity.y -= Balance.WALK_SPEED * Balance.GRAVITY_MULT * delta * 2.0

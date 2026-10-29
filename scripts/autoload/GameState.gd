@@ -32,6 +32,7 @@ signal objective_changed(text)
 var threat_level: int = 0        # 0 none, 1 heard, 2 spotted, 3 hunting
 var threat_direction: Vector3 = Vector3.ZERO
 signal threat_changed(level, direction)
+signal checkpoint_reached()
 
 func set_objective(text: String) -> void:
 	objective = text

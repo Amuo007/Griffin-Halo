@@ -24,7 +24,12 @@ func _ready() -> void:
 	_add_pickups()
 	_add_enemies()
 	_add_extras()
+	var cp := preload("res://scenes/world/Checkpoint.tscn").instantiate()
+	cp.position = Vector3(0 * 4.0, 0.0, 1 * 4.0)
+	add_child(cp)
+	apply_checkpoint(3)
 	GameState.set_objective("Climb to the surface. Don't let it touch you.")
+	DialogueRunner.play_cutscene("alpha")
 
 func _add_torches() -> void:
 	for r in ROOMS:
@@ -71,6 +76,11 @@ func _add_extras() -> void:
 	exit.next_zone = 4
 	exit.position = Vector3(0 * 4.0, 1.5, 12 * 4.0)
 	add_child(exit)
+	var gate := preload("res://scenes/world/ScriptedEvent.tscn").instantiate()
+	gate.event_type = "cutscene"
+	gate.line_text = "gate"
+	gate.position = Vector3(0 * 4.0, 1.0, 11 * 4.0)
+	add_child(gate)
 	var ev := preload("res://scenes/world/ScriptedEvent.tscn").instantiate()
 	ev.event_type = "roar"
 	ev.line_text = "It knows you. It has been waiting at the gate."

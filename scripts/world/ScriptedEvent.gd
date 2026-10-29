@@ -1,7 +1,7 @@
 extends Area3D
 ## Scripted thriller event trigger: flicker, roar, whisper, spawn.
 
-@export var event_type: String = "flicker"   # flicker|roar|whisper|spawn
+@export var event_type: String = "flicker"   # flicker|roar|whisper|spawn|cutscene
 @export var speaker: String = ""
 @export var line_text: String = ""
 @export var spawn_species: String = "fox"
@@ -35,6 +35,8 @@ func _on_body(body: Node) -> void:
 			get_tree().call_group("enemy_ai", "on_noise", global_position, 20.0)
 		"whisper":
 			DialogueRunner.line_started.emit(speaker, line_text)
+		"cutscene":
+			DialogueRunner.play_cutscene(line_text)
 		"spawn":
 			var zone := get_tree().get_first_node_in_group("maze")
 			if zone:

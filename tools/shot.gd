@@ -14,6 +14,10 @@ func _initialize() -> void:
 	if args.size() > 2: out_path = args[2]
 	root.size = Vector2i(1280, 720)
 	change_scene_to_file(scene_path)
+	await process_frame
+	var gs := root.get_node_or_null("GameState")
+	if gs:
+		gs.mode = 3
 
 func _process(_delta: float) -> bool:
 	frames += 1

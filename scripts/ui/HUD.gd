@@ -20,6 +20,7 @@ const CH_DIR := "res://assets/game/crosshair/"
 func _ready() -> void:
 	layer = 10
 	_build()
+	_build_overlays()
 	player = get_tree().get_first_node_in_group("player")
 	if player:
 		if player.has_signal("hp_changed"):
@@ -214,3 +215,158 @@ func _on_line(speaker: String, text: String) -> void:
 	t.tween_interval(3.0)
 	t.tween_property(subtitle_label, "modulate:a", 0.0, 0.6)
 	t.tween_callback(func(): subtitle_label.text = ""; subtitle_label.modulate.a = 1.0)
+
+# --- overlays: pause, death, lore, toast ---
+var _pause_panel: Control = null
+var _death_panel: Control = null
+var _lore_panel: Control = null
+var _lore_title: Label = null
+var _lore_body: Label = null
+var _toast: Label = null
+var _last_mode: int = -1
+
+func _build_overlays() -> void:
+	process_mode = Node.PROCESS_MODE_ALWAYS
+	DialogueRunner.lore_opened.connect(_on_lore)
+	GameState.checkpoint_reached.connect(_on_checkpoint)
+	_toast = Label.new()
+	_toast.anchor_left = 0.5
+	_toast.anchor_right = 0.5
+	_toast.offset_left = -300
+	_toast.offset_right = 300
+	_toast.offset_top = 80
+	_toast.offset_bottom = 110
+	_toast.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_toast.add_theme_font_size_override("font_size", 22)
+	_toast.add_theme_color_override("font_color", Color(1.0, 0.85, 0.5))
+	_toast.modulate.a = 0.0
+	add_child(_toast)
+
+func _overlay_panel(title: String, color: Color) -> VBoxContainer:
+	var dim := ColorRect.new()
+	dim.color = Color(0, 0, 0, 0.7)
+	dim.set_anchors_preset(Control.PRESET_FULL_RECT)
+	add_child(dim)
+	var box := VBoxContainer.new()
+	box.anchor_left = 0.5
+	box.anchor_top = 0.5
+	box.anchor_right = 0.5
+	box.anchor_bottom = 0.5
+	box.offset_left = -180
+	box.offset_right = 180
+	box.offset_top = -140
+	box.offset_bottom = 140
+	box.alignment = BoxContainer.ALIGNMENT_CENTER
+	box.add_theme_constant_override("separation", 12)
+	add_child(box)
+	var lbl := Label.new()
+	lbl.text = title
+	lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	lbl.add_theme_font_size_override("font_size", 44)
+	lbl.add_theme_color_override("font_color", color)
+	box.add_child(lbl)
+	return box
+
+func _menu_button(text: String, cb: Callable) -> Button:
+	var b := Button.new()
+	b.text = text
+	b.custom_minimum_size = Vector2(320, 46)
+	var sb := StyleBoxTexture.new()
+	sb.texture = load("res://assets/game/ui/buttonLong_brown.png")
+	b.add_theme_stylebox_override("normal", sb)
+	b.add_theme_stylebox_override("hover", sb)
+	b.add_theme_font_size_override("font_size", 18)
+	b.pressed.connect(cb)
+	return b
+
+func _show_pause() -> void:
+	if _pause_panel:
+		return
+	var box := _overlay_panel("PAUSED", Color(0.85, 0.87, 0.95))
+	box.add_child(_menu_button("RESUME", _resume))
+	box.add_child(_menu_button("SETTINGS", func(): add_child(preload("res://scripts/ui/SettingsPanel.gd").new())))
+	box.add_child(_menu_button("QUIT TO MENU", func():
+		get_tree().paused = false
+		GameFlow.go_menu()))
+	_pause_panel = box
+
+func _resume() -> void:
+	if _pause_panel:
+		_pause_panel.queue_free()
+		_pause_panel = null
+		if _death_panel:
+			_death_panel.queue_free()
+			_death_panel = null
+	get_tree().paused = false
+	GameState.mode = GameState.Mode.PLAY
+	Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
+
+func _show_death() -> void:
+	if _death_panel:
+		return
+	var box := _overlay_panel("YOU DIED", Color(0.7, 0.05, 0.05))
+	box.add_child(_menu_button("RETRY", func():
+		_death_panel.queue_free()
+		_death_panel = null
+		GameFlow.respawn()))
+	box.add_child(_menu_button("QUIT TO MENU", func():
+		_death_panel.queue_free()
+		_death_panel = null
+		GameFlow.go_menu()))
+	_death_panel = box
+
+func _on_lore(lore_id: String) -> void:
+	var lore := StoryData.get_lore(lore_id)
+	if lore.is_empty():
+		return
+	if not GameState.lore_found.has(lore_id):
+		GameState.lore_found.append(lore_id)
+	if _lore_panel:
+		return
+	var box := _overlay_panel("", Color(0.9, 0.85, 0.7))
+	box.get_child(0).visible = false
+	_lore_title = Label.new()
+	_lore_title.text = String(lore.get("title", ""))
+	_lore_title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_lore_title.add_theme_font_size_override("font_size", 26)
+	box.add_child(_lore_title)
+	_lore_body = Label.new()
+	_lore_body.text = String(lore.get("text", ""))
+	_lore_body.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_lore_body.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_lore_body.add_theme_font_size_override("font_size", 18)
+	box.add_child(_lore_body)
+	var hint := Label.new()
+	hint.text = "[E] close"
+	hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	hint.add_theme_font_size_override("font_size", 14)
+	hint.add_theme_color_override("font_color", Color(0.6, 0.6, 0.6))
+	box.add_child(hint)
+	box.offset_left = -320
+	box.offset_right = 320
+	_lore_panel = box
+
+func _on_checkpoint() -> void:
+	_toast.text = "Checkpoint reached"
+	var t := create_tween()
+	t.tween_property(_toast, "modulate:a", 1.0, 0.2)
+	t.tween_interval(2.0)
+	t.tween_property(_toast, "modulate:a", 0.0, 0.6)
+
+func _unhandled_input(event: InputEvent) -> void:
+	if _lore_panel and event.is_action_pressed("interact"):
+		_lore_panel.queue_free()
+		_lore_panel = null
+		get_viewport().set_input_as_handled()
+	elif _pause_panel and event.is_action_pressed("pause"):
+		_resume()
+		get_viewport().set_input_as_handled()
+
+func _process(_delta: float) -> void:
+	if GameState.mode == GameState.Mode.DEAD and _last_mode != GameState.Mode.DEAD:
+		Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
+		_show_death()
+	elif GameState.mode == GameState.Mode.PAUSED and _last_mode != GameState.Mode.PAUSED:
+		Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
+		_show_pause()
+	_last_mode = GameState.mode

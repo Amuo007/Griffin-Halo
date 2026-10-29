@@ -27,7 +27,12 @@ func _ready() -> void:
 	_add_pickups()
 	_add_enemies()
 	_add_extras()
+	var cp := preload("res://scenes/world/Checkpoint.tscn").instantiate()
+	cp.position = Vector3(0 * 4.0, 0.0, 1 * 4.0)
+	add_child(cp)
+	apply_checkpoint(2)
 	GameState.set_objective("Reach the pump house and find the way up")
+	DialogueRunner.play_cutscene("journal")
 
 func _add_torches() -> void:
 	for r in ROOMS:
@@ -71,6 +76,11 @@ func _add_extras() -> void:
 	exit.next_zone = 3
 	exit.position = Vector3(12 * 4.0, 1.5, 14 * 4.0)
 	add_child(exit)
+	var vera := preload("res://scenes/world/ScriptedEvent.tscn").instantiate()
+	vera.event_type = "cutscene"
+	vera.line_text = "vera"
+	vera.position = Vector3(0 * 4.0, 1.0, 14 * 4.0)
+	add_child(vera)
 	var ev := preload("res://scenes/world/ScriptedEvent.tscn").instantiate()
 	ev.event_type = "whisper"
 	ev.speaker = ""
