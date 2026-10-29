@@ -2,5 +2,5 @@
 
 [ext_resource type="Script" path="res://scripts/pickups/Pickup.gd" id="1"]
 
-[node name="Pickup" type="RigidBody3D"]
+[node name="Pickup" type="Area3D"]
 script = ExtResource("1")

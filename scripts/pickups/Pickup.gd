@@ -1,4 +1,4 @@
-extends RigidBody3D
+extends Area3D
 ## World pickup: gun / ammo / food / battery / lore. Auto-collect on touch or E.
 
 @export var pickup_type: String = "gun"     # gun|ammo|food|battery|lore
@@ -14,11 +14,8 @@ var _glow: OmniLight3D = null
 
 func _ready() -> void:
 	_base_y = position.y
-	freeze = true
 	collision_layer = 8          # Pickups layer 4
 	collision_mask = 4           # detect player layer 3
-	contact_monitor = true
-	max_contacts_reported = 4
 	body_entered.connect(_on_body_entered)
 	var cs := CollisionShape3D.new()
 	var sh := SphereShape3D.new()
