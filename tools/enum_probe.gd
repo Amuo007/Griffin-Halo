@@ -1,7 +1,6 @@
 extends SceneTree
 func _initialize() -> void:
-	var sm := AnimationNodeStateMachine.new()
-	sm.add_node(&"Locomotion", AnimationNodeAnimation.new())
-	sm.initial_node = &"Locomotion"
-	print("initial_node ok: ", sm.initial_node)
+	var s = load("res://scripts/world/MazeBuilder.gd")
+	print("MazeBuilder script: ", s)
+	if s: print("base: ", s.get_base_script())
 	quit()

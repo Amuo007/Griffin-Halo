@@ -5,7 +5,7 @@ func _ready() -> void:
 	print("[GRIFIN] boot ok, godot ", Engine.get_version_info().string)
 	GameState.mode = GameState.Mode.MENU
 	# Phase 8: switch to MainMenu scene. For now load gameplay test scene.
-	call_deferred("_change_scene", "res://scenes/dev/DevScene.tscn")
+	call_deferred("_change_scene", "res://scenes/zones/Zone1.tscn")
 
 func _change_scene(path: String) -> void:
 	get_tree().change_scene_to_file(path)
